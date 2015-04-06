@@ -2,7 +2,7 @@
 #define _HTTPRESPONSE_H
 
 struct httpresponse_t {
-    HttpUrl *url;
+    HttpRequest request;
     char *proto;
     int status;
     char *status_msg;

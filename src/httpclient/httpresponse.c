@@ -24,7 +24,7 @@ httpresponse_status_message(HttpResponse response)
 char*
 httpresponse_body_to_file(HttpResponse response)
 {
-    char *last_slash = g_strrstr(response->url->path, "/");
+    char *last_slash = g_strrstr(response->request->resource, "/");
 
     char *filename = NULL;
     if (last_slash && g_strcmp0(last_slash + 1, "\0") != 0) {

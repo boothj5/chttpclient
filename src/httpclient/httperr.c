@@ -5,7 +5,7 @@
 #include "httpclient.h"
 
 void
-http_error(char *prefix, request_err_t err)
+http_error(char *prefix, httpclient_err_t err)
 {
     GString *full_msg = g_string_new("");
     if (prefix) {

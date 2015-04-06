@@ -22,21 +22,31 @@ typedef enum {
     GZIP_INSUFFICIENT_MEMORY,
     GZIP_CORRUPT,
     GZIP_FAILED
-} request_err_t;
+} httpclient_err_t;
+
+typedef struct httpurl_t {
+    char *scheme;
+    char *host;
+    int port;
+    char *resource;
+} HttpUrl;
 
 typedef struct httprequest_t *HttpRequest;
 typedef struct httpresponse_t *HttpResponse;
 typedef struct httpcontext_t *HttpContext;
 
-void http_error(char *prefix, request_err_t err);
+void http_error(char *prefix, httpclient_err_t err);
 
-HttpContext httpcontext_create(void);
+HttpUrl* httputil_url_parse(char *url_s, httpclient_err_t *err);
+void httputil_url_destroy(HttpUrl *url);
+
+HttpContext httpcontext_create(char *host, httpclient_err_t *err);
 void httpcontext_debug(HttpContext ctx, gboolean debug);
 void httpcontext_read_timeout(HttpContext ctx, int read_timeout_ms);
 
-HttpRequest httprequest_create(char *url_s, char *method, request_err_t *err);
+HttpRequest httprequest_create(HttpContext context, char *resource, char *method, httpclient_err_t *err);
 void httprequest_addheader(HttpRequest request, const char * const key, const char *const val);
-HttpResponse httprequest_perform(HttpContext ctx, HttpRequest request, request_err_t *err);
+HttpResponse httprequest_perform(HttpRequest request, httpclient_err_t *err);
 
 int httpresponse_status(HttpResponse response);
 char* httpresponse_status_message(HttpResponse response);

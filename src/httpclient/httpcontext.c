@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include <glib.h>
 
@@ -6,11 +7,21 @@
 #include "httpcontext.h"
 
 HttpContext
-httpcontext_create(void)
+httpcontext_create(char *host, httpclient_err_t *err)
 {
+    HttpUrl *url = httputil_url_parse(host, err);
+    if (!url) {
+        return NULL;
+    }
+
     HttpContext context = malloc(sizeof(struct httpcontext_t));
+    context->scheme = strdup(url->scheme);
+    context->host = strdup(url->host);
+    context->port = url->port;
     context->debug = FALSE;
     context->read_timeout_ms = 0;
+
+    httputil_url_destroy(url);
 
     return context;
 }

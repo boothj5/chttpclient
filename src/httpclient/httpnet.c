@@ -12,15 +12,15 @@
 #include "httpresponse.h"
 
 int
-httpnet_connect(HttpContext context, char *host, int port, request_err_t *err)
+httpnet_connect(HttpContext context, httpclient_err_t *err)
 {
-    struct hostent *he = gethostbyname(host);
+    struct hostent *he = gethostbyname(context->host);
     if (he == NULL) {
         *err = HOST_LOOKUP_FAILED;
         return -1;
     }
 
-    if (context->debug) printf("\nHost %s resolved to:\n", host);
+    if (context->debug) printf("\nHost %s resolved to:\n", context->host);
     struct in_addr **addr_list = (struct in_addr**)he->h_addr_list;
     char *ip = NULL;
     int i;
@@ -30,7 +30,7 @@ httpnet_connect(HttpContext context, char *host, int port, request_err_t *err)
             ip = strdup(inet_ntoa(*addr_list[i]));
         }
     }
-    if (context->debug) printf("Connecting to %s:%d...\n", ip, port);
+    if (context->debug) printf("Connecting to %s:%d...\n", ip, context->port);
 
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock == -1) {
@@ -51,7 +51,7 @@ httpnet_connect(HttpContext context, char *host, int port, request_err_t *err)
     struct sockaddr_in server;
     server.sin_addr.s_addr = inet_addr(ip);
     server.sin_family = AF_INET; // ipv4
-    server.sin_port = htons(port); // host to network byte order
+    server.sin_port = htons(context->port); // host to network byte order
 
     if (connect(sock, (struct sockaddr*)&server, sizeof(server)) < 0) {
         *err = SOCK_CONNECT_FAILED;
@@ -63,11 +63,11 @@ httpnet_connect(HttpContext context, char *host, int port, request_err_t *err)
 }
 
 gboolean
-httpnet_send(HttpContext context, int sock, HttpRequest request, request_err_t *err)
+httpnet_send(HttpRequest request, int sock, httpclient_err_t *err)
 {
     GString *req = g_string_new("");
     g_string_append(req, "GET ");
-    g_string_append(req, request->url->path);
+    g_string_append(req, request->resource);
     g_string_append(req, " HTTP/1.1");
     g_string_append(req, "\r\n");
 
@@ -84,7 +84,7 @@ httpnet_send(HttpContext context, int sock, HttpRequest request, request_err_t *
 
     g_string_append(req, "\r\n");
 
-    if (context->debug) printf("\n---REQUEST START---\n%s---REQUEST END---\n", req->str);
+    if (request->context->debug) printf("\n---REQUEST START---\n%s---REQUEST END---\n", req->str);
 
     int sent = 0;
     while (sent < req->len) {
@@ -102,7 +102,7 @@ httpnet_send(HttpContext context, int sock, HttpRequest request, request_err_t *
 }
 
 gboolean
-httpnet_read_headers(HttpContext context, int sock, HttpResponse response, request_err_t *err)
+httpnet_read_headers(HttpResponse response, int sock, httpclient_err_t *err)
 {
     char header_buf[2];
     memset(header_buf, 0, sizeof(header_buf));
@@ -131,7 +131,7 @@ httpnet_read_headers(HttpContext context, int sock, HttpResponse response, reque
 
         // protocol line
         char *proto_line = lines[0];
-        if (context->debug) printf("\nPROTO LINE: %s\n", proto_line);
+        if (response->request->context->debug) printf("\nPROTO LINE: %s\n\n", proto_line);
         gchar **proto_chunks = g_strsplit(proto_line, " ", 3);
 
         status = (int) strtol(proto_chunks[1], NULL, 10);
@@ -151,7 +151,7 @@ httpnet_read_headers(HttpContext context, int sock, HttpResponse response, reque
                 g_strstrip(header_key);
                 g_strstrip(header_val);
                 g_hash_table_replace(headers_ht, header_key, header_val);
-                if (context->debug) printf("HEADER: %s: %s\n", header_key, header_val);
+                if (response->request->context->debug) printf("HEADER: %s: %s\n", header_key, header_val);
             }
         }
     }
@@ -165,7 +165,7 @@ httpnet_read_headers(HttpContext context, int sock, HttpResponse response, reque
 }
 
 gboolean
-httpnet_read_body(HttpContext context, int sock, HttpResponse response, request_err_t *err)
+httpnet_read_body(HttpResponse response, int sock, httpclient_err_t *err)
 {
     // Content-Encoding gzip and Content-Length provided
     if ((g_strcmp0(g_hash_table_lookup(response->headers, "Content-Encoding"), "gzip") == 0)
@@ -194,7 +194,7 @@ httpnet_read_body(HttpContext context, int sock, HttpResponse response, request_
                 return FALSE;
             }
 
-            if (context->debug) printf("\nGZIPPED LEN: %d\n", body_stream->len);
+            if (response->request->context->debug) printf("\nGZIPPED LEN: %d\n\n", body_stream->len);
 
             char inflated[500000];
             memset(inflated, 0, 500000);

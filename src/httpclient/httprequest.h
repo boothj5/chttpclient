@@ -3,15 +3,11 @@
 
 #include <glib.h>
 
-typedef struct httpurl_t {
-    char *scheme;
-    char *host;
-    int port;
-    char *path;
-} HttpUrl;
+#include "httpclient.h"
 
 struct httprequest_t {
-    HttpUrl *url;
+    HttpContext context;
+    char *resource;
     char *method;
     GHashTable *headers;
 };

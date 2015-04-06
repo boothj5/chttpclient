@@ -6,47 +6,39 @@
 #include "config.h"
 #include "httpclient/httpclient.h"
 
-gboolean
-_validate_args(int argc, char *argv[], char **arg_url)
-{
-    GOptionEntry entries[] =
-    {
-        { "url", 'u', 0, G_OPTION_ARG_STRING, arg_url, "URL", NULL },
-        { NULL }
-    };
-
-    GError *error = NULL;
-    GOptionContext *context = g_option_context_new(NULL);
-    g_option_context_add_main_entries(context, entries, NULL);
-    if (!g_option_context_parse(context, &argc, &argv, &error)) {
-        g_print("%s\n", error->message);
-        g_option_context_free(context);
-        g_error_free(error);
-        return FALSE;
-    }
-    g_option_context_free(context);
-
-    if (!*arg_url) {
-        printf("You must specify a URL\n");
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
 int
 main(int argc, char *argv[])
 {
-    char *arg_url = NULL;
+    if (argc != 2) {
+        printf("You must specify a URL\n");
+        return 1;
+    }
 
-    if (!_validate_args(argc, argv, &arg_url)) return 1;
+    char *arg_url = argv[1];
 
-    HttpContext ctx = httpcontext_create();
+    httpclient_err_t r_err;
+    HttpUrl *url = httputil_url_parse(arg_url, &r_err);
+    if (!url) {
+        http_error("Error parsing URL", r_err);
+        return 1;
+    }
+
+    GString *host = g_string_new("");
+    g_string_append_printf(host, "%s://%s", url->scheme, url->host);
+    if (url->port > 0) {
+        g_string_append_printf(host, ":%d", url->port);
+    }
+
+    HttpContext ctx = httpcontext_create(host->str, &r_err);
+    if (!ctx) {
+        http_error("Error creating context", r_err);
+        return 1;
+    }
+
     httpcontext_debug(ctx, FALSE);
     httpcontext_read_timeout(ctx, 3000);
 
-    request_err_t r_err;
-    HttpRequest request = httprequest_create(arg_url, "GET", &r_err);
+    HttpRequest request = httprequest_create(ctx, url->resource, "GET", &r_err);
     if (!request) {
         http_error("Error creating request", r_err);
         return 1;
@@ -55,7 +47,7 @@ main(int argc, char *argv[])
     httprequest_addheader(request, "User-Agent", "HTTPCLIENT/1.0");
     httprequest_addheader(request, "Accept-Encoding", "gzip");
 
-    HttpResponse response = httprequest_perform(ctx, request, &r_err);
+    HttpResponse response = httprequest_perform(request, &r_err);
     if (!response) {
         http_error("Error performing request", r_err);
         return 1;
@@ -64,30 +56,11 @@ main(int argc, char *argv[])
     printf("\n");
 
     int status = httpresponse_status(response);
-    printf("Status code    : %d\n", status);
-
-    char *status_message = httpresponse_status_message(response);
-    if (status_message) {
-        printf("Status message : %s\n", status_message);
-    }
-    printf("\n");
-
-    GHashTable *headers = httpresponse_headers(response);
-    GList *keys = g_hash_table_get_keys(headers);
-    GList *curr = keys;
-    if (curr) {
-        printf("Headers:\n");
-        while (curr) {
-            printf("  %s: %s\n", (char *)curr->data, (char *)g_hash_table_lookup(headers, curr->data));
-            curr = g_list_next(curr);
-        }
-        printf("\n");
-    }
-
     if (status == 200) {
         char *filename = httpresponse_body_to_file(response);
         printf("Saved to file: %s\n", filename);
 
+        GHashTable *headers = httpresponse_headers(response);
         char *content_type = g_hash_table_lookup(headers, "Content-Type");
         if (content_type && g_str_has_prefix(content_type, "image/"))
         {
@@ -108,6 +81,8 @@ main(int argc, char *argv[])
     } else {
         printf("Failed to download.\n");
     }
+
+    httputil_url_destroy(url);
 
     return 0;
 }
