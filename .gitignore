@@ -22,3 +22,8 @@ src/httpclient/httpnet.o
 src/httpclient/httprequest.o
 src/httpclient/httpresponse.o
 src/stamp-h1
+
+.codelite/
+chttpclient.project
+chttpclient.tags
+chttpclient.workspace
