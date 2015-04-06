@@ -34,5 +34,9 @@ int main(void)
 
     printf("Result: %d - %s\n", status, message);
 
+    httpresponse_destroy(response);
+    httprequest_unref(request);
+    httpcontext_unref(ctx);
+
     return 0;
 }

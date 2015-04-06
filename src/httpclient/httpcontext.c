@@ -21,6 +21,8 @@ httpcontext_create(char *host, httpclient_err_t *err)
     context->debug = FALSE;
     context->read_timeout_ms = 0;
 
+    context->refcount = 1;
+
     httputil_url_destroy(url);
 
     return context;
@@ -37,3 +39,29 @@ httpcontext_read_timeout(HttpContext ctx, int read_timeout_ms)
 {
     ctx->read_timeout_ms = read_timeout_ms;
 }
+
+HttpContext
+httpcontext_ref(HttpContext ctx)
+{
+    ctx->refcount++;
+    return ctx;
+}
+
+HttpContext
+httpcontext_unref(HttpContext ctx)
+{
+    if (ctx) {
+        ctx->refcount--;
+        if (ctx->refcount == 0) {
+            free(ctx->host);
+            free(ctx->scheme);
+            free(ctx);
+            return NULL;
+        } else {
+            return ctx;
+        }
+    } else {
+        return NULL;
+    }
+}
+

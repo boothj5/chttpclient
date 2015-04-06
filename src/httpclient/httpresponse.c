@@ -9,6 +9,27 @@
 #include "httprequest.h"
 #include "httpresponse.h"
 
+HttpResponse
+httpresponse_create(HttpRequest request)
+{
+    HttpResponse response = malloc(sizeof(struct httpresponse_t));
+    response->request = httprequest_ref(request);
+
+    return response;
+}
+
+void
+httpresponse_destroy(HttpResponse response)
+{
+    if (response) {
+        free(response->status_msg);
+        g_hash_table_destroy(response->headers);
+        g_byte_array_free(response->body, TRUE);
+        httprequest_unref(response->request);
+        free(response);
+    }
+}
+
 int
 httpresponse_status(HttpResponse response)
 {

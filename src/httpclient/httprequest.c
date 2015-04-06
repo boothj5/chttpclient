@@ -21,10 +21,12 @@ httprequest_create(HttpContext context, char *resource, char *method, httpclient
     }
 
     HttpRequest request = malloc(sizeof(struct httprequest_t));
-    request->context = context;
+    request->context = httpcontext_ref(context);
     request->resource = strdup(resource);
     request->method = strdup(method);
     request->headers = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+
+    request->refcount = 1;
 
     GString *host_val = g_string_new("");
     g_string_append(host_val, request->context->host);
@@ -55,8 +57,7 @@ httprequest_perform(HttpRequest request, httpclient_err_t *err)
     if (!sent) return NULL;
 
     // create response
-    HttpResponse response = malloc(sizeof(struct httpresponse_t));
-    response->request = request;
+    HttpResponse response = httpresponse_create(request);
 
     // read headers
     gboolean headers_read = httpnet_read_headers(response, sock, err);
@@ -69,4 +70,31 @@ httprequest_perform(HttpRequest request, httpclient_err_t *err)
     close(sock);
 
     return response;
+}
+
+HttpRequest
+httprequest_ref(HttpRequest request)
+{
+    request->refcount++;
+    return request;
+}
+
+HttpRequest
+httprequest_unref(HttpRequest request)
+{
+    if (request) {
+        request->refcount--;
+        if (request->refcount == 0) {
+            free(request->resource);
+            free(request->method);
+            httpcontext_unref(request->context);
+            g_hash_table_destroy(request->headers);
+            free(request);
+            return NULL;
+        } else {
+            return request;
+        }
+    } else {
+        return NULL;
+    }
 }

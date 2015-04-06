@@ -6,6 +6,7 @@
 #include "httpclient.h"
 
 struct httprequest_t {
+    int refcount;
     HttpContext context;
     char *resource;
     char *method;

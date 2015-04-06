@@ -3,11 +3,12 @@
 
 struct httpresponse_t {
     HttpRequest request;
-    char *proto;
     int status;
     char *status_msg;
     GHashTable *headers;
     GByteArray *body;
 };
+
+HttpResponse httpresponse_create(HttpRequest request);
 
 #endif

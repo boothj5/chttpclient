@@ -4,6 +4,7 @@
 #include <glib.h>
 
 struct httpcontext_t {
+    int refcount;
     char *scheme;
     char *host;
     int port;
