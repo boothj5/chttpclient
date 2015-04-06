@@ -49,25 +49,25 @@ HttpResponse
 httprequest_perform(HttpRequest request, httpclient_err_t *err)
 {
     // connect socket
-    int sock = httpnet_connect(request->context, err);
-    if (sock == -1) return NULL;
+    httpnet_connect(request->context, err);
+    if (request->context->socket == -1) return NULL;
 
     // send request
-    gboolean sent = httpnet_send(request, sock, err);
+    gboolean sent = httpnet_send(request, err);
     if (!sent) return NULL;
 
     // create response
     HttpResponse response = httpresponse_create(request);
 
     // read headers
-    gboolean headers_read = httpnet_read_headers(response, sock, err);
+    gboolean headers_read = httpnet_read_headers(response, err);
     if (!headers_read) return NULL;
 
     // read body
-    gboolean body_read = httpnet_read_body(response, sock, err);
+    gboolean body_read = httpnet_read_body(response, err);
     if (!body_read) return NULL;
 
-    close(sock);
+    httpnet_close(request->context);
 
     return response;
 }

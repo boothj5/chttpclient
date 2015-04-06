@@ -35,7 +35,7 @@ main(int argc, char *argv[])
         return 1;
     }
 
-    httpcontext_debug(ctx, FALSE);
+    httpcontext_debug(ctx, TRUE);
     httpcontext_read_timeout(ctx, 3000);
 
     HttpRequest request = httprequest_create(ctx, url->resource, "GET", &r_err);

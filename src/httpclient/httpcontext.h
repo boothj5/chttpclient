@@ -8,6 +8,7 @@ struct httpcontext_t {
     char *scheme;
     char *host;
     int port;
+    int socket;
     gboolean debug;
     int read_timeout_ms;
 };

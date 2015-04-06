@@ -13,7 +13,7 @@ int main(void)
     }
 
     httpcontext_debug(ctx, TRUE);
-    httpcontext_read_timeout(ctx, 1000);
+    httpcontext_read_timeout(ctx, 3000);
 
     HttpRequest request = httprequest_create(ctx, "/reference.html", "GET", &r_err);
     if (!request) {

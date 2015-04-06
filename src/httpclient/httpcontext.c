@@ -18,6 +18,7 @@ httpcontext_create(char *host, httpclient_err_t *err)
     context->scheme = strdup(url->scheme);
     context->host = strdup(url->host);
     context->port = url->port;
+    context->socket = -1;
     context->debug = FALSE;
     context->read_timeout_ms = 0;
 

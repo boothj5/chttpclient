@@ -34,8 +34,8 @@ main(int argc, char *argv[])
         return 1;
     }
 
-    httpcontext_debug(ctx, FALSE);
-    httpcontext_read_timeout(ctx, 1000);
+    httpcontext_debug(ctx, TRUE);
+    httpcontext_read_timeout(ctx, 3000);
 
     g_string_free(host, TRUE);
 

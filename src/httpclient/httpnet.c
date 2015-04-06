@@ -11,13 +11,13 @@
 #include "httprequest.h"
 #include "httpresponse.h"
 
-int
+void
 httpnet_connect(HttpContext context, httpclient_err_t *err)
 {
     struct hostent *he = gethostbyname(context->host);
     if (he == NULL) {
         *err = HOST_LOOKUP_FAILED;
-        return -1;
+        return;
     }
 
     if (context->debug) printf("\nHost %s resolved to:\n", context->host);
@@ -32,10 +32,10 @@ httpnet_connect(HttpContext context, httpclient_err_t *err)
     }
     if (context->debug) printf("Connecting to %s:%d...\n", ip, context->port);
 
-    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock == -1) {
+    context->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (context->socket == -1) {
         *err = SOCK_CREATE_FAILED;
-        return -1;
+        return;
     }
 
     struct timeval tv;
@@ -46,24 +46,22 @@ httpnet_connect(HttpContext context, httpclient_err_t *err)
         tv.tv_sec = 0;
         tv.tv_usec = context->read_timeout_ms * 1000;
     }
-    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
+    setsockopt(context->socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
 
     struct sockaddr_in server;
     server.sin_addr.s_addr = inet_addr(ip);
     server.sin_family = AF_INET; // ipv4
     server.sin_port = htons(context->port); // host to network byte order
 
-    if (connect(sock, (struct sockaddr*)&server, sizeof(server)) < 0) {
+    if (connect(context->socket, (struct sockaddr*)&server, sizeof(server)) < 0) {
         *err = SOCK_CONNECT_FAILED;
-        return -1;
+        return;
     }
     if (context->debug) printf("Connected successfully.\n");
-
-    return sock;
 }
 
 gboolean
-httpnet_send(HttpRequest request, int sock, httpclient_err_t *err)
+httpnet_send(HttpRequest request, httpclient_err_t *err)
 {
     GString *req = g_string_new("");
     g_string_append(req, "GET ");
@@ -88,7 +86,7 @@ httpnet_send(HttpRequest request, int sock, httpclient_err_t *err)
 
     int sent = 0;
     while (sent < req->len) {
-        int res = send(sock, req->str+sent, req->len-sent, 0);
+        int res = send(request->context->socket, req->str+sent, req->len-sent, 0);
         if (res == -1) {
             *err = SOCK_SEND_FAILED;
             g_string_free(req, TRUE);
@@ -102,7 +100,7 @@ httpnet_send(HttpRequest request, int sock, httpclient_err_t *err)
 }
 
 gboolean
-httpnet_read_headers(HttpResponse response, int sock, httpclient_err_t *err)
+httpnet_read_headers(HttpResponse response, httpclient_err_t *err)
 {
     char header_buf[2];
     memset(header_buf, 0, sizeof(header_buf));
@@ -110,7 +108,7 @@ httpnet_read_headers(HttpResponse response, int sock, httpclient_err_t *err)
 
     gboolean headers_read = FALSE;
     GString *header_stream = g_string_new("");
-    while (!headers_read && ((res = recv(sock, header_buf, 1, 0)) > 0)) {
+    while (!headers_read && ((res = recv(response->request->context->socket, header_buf, 1, 0)) > 0)) {
         g_string_append_len(header_stream, header_buf, res);
         if (g_str_has_suffix(header_stream->str, "\r\n\r\n")) headers_read = TRUE;
         memset(header_buf, 0, sizeof(header_buf));
@@ -165,7 +163,7 @@ httpnet_read_headers(HttpResponse response, int sock, httpclient_err_t *err)
 }
 
 gboolean
-httpnet_read_body(HttpResponse response, int sock, httpclient_err_t *err)
+httpnet_read_body(HttpResponse response, httpclient_err_t *err)
 {
     // Content-Encoding gzip and Content-Length provided
     if ((g_strcmp0(g_hash_table_lookup(response->headers, "Content-Encoding"), "gzip") == 0)
@@ -181,7 +179,7 @@ httpnet_read_body(HttpResponse response, int sock, httpclient_err_t *err)
 
             int remaining = content_length;
             if (remaining < bufsize) bufsize = remaining;
-            while (remaining > 0 && ((res = recv(sock, content_buf, bufsize, 0)) > 0)) {
+            while (remaining > 0 && ((res = recv(response->request->context->socket, content_buf, bufsize, 0)) > 0)) {
                 g_byte_array_append(body_stream, content_buf, res);
                 remaining = content_length - body_stream->len;
                 if (bufsize > remaining) bufsize = remaining;
@@ -232,7 +230,7 @@ httpnet_read_body(HttpResponse response, int sock, httpclient_err_t *err)
 
             int remaining = content_length;
             if (remaining < bufsize) bufsize = remaining;
-            while (remaining > 0 && ((res = recv(sock, content_buf, bufsize, 0)) > 0)) {
+            while (remaining > 0 && ((res = recv(response->request->context->socket, content_buf, bufsize, 0)) > 0)) {
                 g_byte_array_append(body_stream, content_buf, res);
                 remaining = content_length - body_stream->len;
                 if (bufsize > remaining) bufsize = remaining;
@@ -260,7 +258,7 @@ httpnet_read_body(HttpResponse response, int sock, httpclient_err_t *err)
         gboolean cont = TRUE;
 
         // read one byte at a time
-        while (cont && ((len_res = recv(sock, len_content_buf, 1, 0)) > 0)) {
+        while (cont && ((len_res = recv(response->request->context->socket, len_content_buf, 1, 0)) > 0)) {
             g_string_append_len(len_stream, len_content_buf, len_res);
 
             // chunk size read
@@ -292,7 +290,7 @@ httpnet_read_body(HttpResponse response, int sock, httpclient_err_t *err)
                 int ch_remaining = chunk_size;
 
                 // read chunk
-                while (ch_remaining > 0 && ((ch_res = recv(sock, ch_content_buf, ch_bufsize, 0)) > 0)) {
+                while (ch_remaining > 0 && ((ch_res = recv(response->request->context->socket, ch_content_buf, ch_bufsize, 0)) > 0)) {
                     ch_total += ch_res;
                     g_byte_array_append(body_stream, ch_content_buf, ch_res);
                     ch_remaining = chunk_size - ch_total;
@@ -308,7 +306,7 @@ httpnet_read_body(HttpResponse response, int sock, httpclient_err_t *err)
 
                 // skip terminating \r\n after chunk data
                 int skip = 0;
-                while (skip < 2 && ((ch_res = recv(sock, ch_content_buf, 1, 0)) > 0)) {
+                while (skip < 2 && ((ch_res = recv(response->request->context->socket, ch_content_buf, 1, 0)) > 0)) {
                     skip++;
                     memset(ch_content_buf, 0, sizeof(ch_content_buf));
                 }
@@ -335,3 +333,13 @@ httpnet_read_body(HttpResponse response, int sock, httpclient_err_t *err)
 
     return TRUE;
 }
+
+void
+httpnet_close(HttpContext context)
+{
+    if (context->socket != -1) {
+        close(context->socket);
+        context->socket = -1;
+    }
+}
+
