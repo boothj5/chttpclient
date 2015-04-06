@@ -213,7 +213,7 @@ httpnet_read_body(HttpResponse response, int sock, httpclient_err_t *err)
             inflateEnd(&infstream);
 
             GByteArray *body = g_byte_array_new();
-            g_byte_array_append(body, (unsigned char*)inflated, strlen(inflated) + 1);
+            g_byte_array_append(body, (unsigned char*)inflated, strlen(inflated));
             response->body = body;
             g_byte_array_free(body_stream, TRUE);
         } else {
