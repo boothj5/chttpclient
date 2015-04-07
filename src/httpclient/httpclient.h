@@ -5,6 +5,19 @@
 
 #include "httpcontext.h"
 
+#define HTTPHKEY_HOST "Host"
+#define HTTPHKEY_USER_AGENT "User-Agent"
+#define HTTPHKEY_CONTENT_TYPE "Content-Type"
+#define HTTPHKEY_CONTENT_LENGTH "Content-Length"
+#define HTTPHKEY_CONTENT_ENCODING "Content-Encoding"
+#define HTTPHKEY_TRANSFER_ENCODING "Transfer-Encoding"
+#define HTTPHKEY_ACCEPT_ENCODING "Accept-Encoding"
+
+#define HTTPHVAL_GZIP "gzip"
+#define HTTPHVAL_CHUNKED "chunked"
+
+#define HTTPMETHOD_GET "GET"
+
 typedef enum {
     URL_NO_SCHEME,
     URL_INVALID_SCHEME,

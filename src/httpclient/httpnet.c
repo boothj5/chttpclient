@@ -169,13 +169,13 @@ httpnet_read_headers(HttpResponse response, httpclient_err_t *err)
 gboolean
 httpnet_read_body(HttpResponse response, httpclient_err_t *err)
 {
-    if (httpresponse_header_exists(response, "Content-Length")) {
-        if (httpresponse_header_equals(response, "Content-Encoding", "gzip")) {
+    if (httpresponse_header_exists(response, HTTPHKEY_CONTENT_LENGTH)) {
+        if (httpresponse_header_equals(response, HTTPHKEY_CONTENT_ENCODING, HTTPHVAL_GZIP)) {
             return _read_gzip(response, err);
         } else {
             return _read_text(response, err);
         }
-    } else if (httpresponse_header_equals(response, "Transfer-Encoding", "chunked")) {
+    } else if (httpresponse_header_equals(response, HTTPHKEY_TRANSFER_ENCODING, HTTPHVAL_CHUNKED)) {
         return _read_chunked(response, err);
     } else {
         response->body = NULL;
@@ -196,7 +196,7 @@ httpnet_close(HttpContext context)
 static gboolean
 _read_gzip(HttpResponse response, httpclient_err_t *err)
 {
-    int content_length = (int) strtol(g_hash_table_lookup(response->headers, "Content-Length"), NULL, 10);
+    int content_length = (int) strtol(g_hash_table_lookup(response->headers, HTTPHKEY_CONTENT_LENGTH), NULL, 10);
     if (content_length > 0) {
         GByteArray *body_stream = g_byte_array_new();
         int res = 0;
@@ -251,7 +251,7 @@ _read_gzip(HttpResponse response, httpclient_err_t *err)
 static gboolean
 _read_text(HttpResponse response, httpclient_err_t *err)
 {
-    int content_length = (int) strtol(g_hash_table_lookup(response->headers, "Content-Length"), NULL, 10);
+    int content_length = (int) strtol(g_hash_table_lookup(response->headers, HTTPHKEY_CONTENT_LENGTH), NULL, 10);
     if (content_length > 0) {
         GByteArray *body_stream = g_byte_array_new();
         int res = 0;

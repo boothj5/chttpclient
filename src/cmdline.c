@@ -39,14 +39,14 @@ main(int argc, char *argv[])
 
     g_string_free(host, TRUE);
 
-    HttpRequest request = httprequest_create(ctx, url->resource, "GET", &r_err);
+    HttpRequest request = httprequest_create(ctx, url->resource, HTTPMETHOD_GET, &r_err);
     if (!request) {
         http_error("Error creating request", r_err);
         return 1;
     }
 
-    httprequest_addheader(request, "User-Agent", "HTTPCLIENT/1.0");
-    httprequest_addheader(request, "Accept-Encoding", "gzip");
+    httprequest_addheader(request, HTTPHKEY_USER_AGENT, "HTTPCLIENT/1.0");
+    httprequest_addheader(request, HTTPHKEY_ACCEPT_ENCODING, HTTPHVAL_GZIP);
 
     HttpResponse response = httprequest_perform(request, &r_err);
     if (!response) {

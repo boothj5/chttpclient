@@ -15,7 +15,7 @@
 HttpRequest
 httprequest_create(HttpContext context, char *resource, char *method, httpclient_err_t *err)
 {
-    if (g_strcmp0(method, "GET") != 0) {
+    if (g_strcmp0(method, HTTPMETHOD_GET) != 0) {
         *err = REQ_INVALID_METHOD;
         return NULL;
     }
@@ -33,7 +33,7 @@ httprequest_create(HttpContext context, char *resource, char *method, httpclient
 
     if (request->context->port != 80) g_string_append_printf(host_val, ":%d", request->context->port);
 
-    httprequest_addheader(request, "Host", host_val->str);
+    httprequest_addheader(request, HTTPHKEY_HOST, host_val->str);
     g_string_free(host_val, FALSE);
 
     return request;
