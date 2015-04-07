@@ -11,6 +11,10 @@
 #include "httprequest.h"
 #include "httpresponse.h"
 
+static gboolean _read_gzip(HttpResponse response, httpclient_err_t *err);
+static gboolean _read_text(HttpResponse response, httpclient_err_t *err);
+static gboolean _read_chunked(HttpResponse response, httpclient_err_t *err);
+
 void
 httpnet_connect(HttpContext context, httpclient_err_t *err)
 {
@@ -165,168 +169,14 @@ httpnet_read_headers(HttpResponse response, httpclient_err_t *err)
 gboolean
 httpnet_read_body(HttpResponse response, httpclient_err_t *err)
 {
-    // Content-Encoding gzip and Content-Length provided
-    if ((g_strcmp0(g_hash_table_lookup(response->headers, "Content-Encoding"), "gzip") == 0)
-        && g_hash_table_lookup(response->headers, "Content-Length")) {
-
-        int content_length = (int) strtol(g_hash_table_lookup(response->headers, "Content-Length"), NULL, 10);
-        if (content_length > 0) {
-            GByteArray *body_stream = g_byte_array_new();
-            int res = 0;
-            int bufsize = BUFSIZ;
-            unsigned char content_buf[bufsize+1];
-            memset(content_buf, 0, sizeof(content_buf));
-
-            int remaining = content_length;
-            if (remaining < bufsize) bufsize = remaining;
-            while (remaining > 0 && ((res = recv(response->request->context->socket, content_buf, bufsize, 0)) > 0)) {
-                g_byte_array_append(body_stream, content_buf, res);
-                remaining = content_length - body_stream->len;
-                if (bufsize > remaining) bufsize = remaining;
-                memset(content_buf, 0, sizeof(content_buf));
-            }
-
-            if (res < 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) *err = SOCK_TIMEOUT;
-                else *err = SOCK_RECV_FAILED;
-                return FALSE;
-            }
-
-            if (response->request->context->debug) printf("\nGZIPPED LEN: %d\n\n", body_stream->len);
-
-            char inflated[500000];
-            memset(inflated, 0, 500000);
-
-            z_stream infstream;
-            infstream.zalloc = Z_NULL;
-            infstream.zfree = Z_NULL;
-            infstream.opaque = Z_NULL;
-            infstream.avail_in = (uInt)body_stream->len;
-            infstream.next_in = (Bytef *)body_stream->data;
-            infstream.avail_out = (uInt)sizeof(inflated);
-            infstream.next_out = (Bytef *)inflated;
-
-            inflateInit2(&infstream, 16+MAX_WBITS);
-            inflate(&infstream, Z_NO_FLUSH);
-            inflateEnd(&infstream);
-
-            GByteArray *body = g_byte_array_new();
-            g_byte_array_append(body, (unsigned char*)inflated, strlen(inflated));
-            response->body = body;
-            g_byte_array_free(body_stream, TRUE);
+    if (httpresponse_header_exists(response, "Content-Length")) {
+        if (httpresponse_header_equals(response, "Content-Encoding", "gzip")) {
+            return _read_gzip(response, err);
         } else {
-            response->body = NULL;
+            return _read_text(response, err);
         }
-
-    // Content-Length header provided, attempt to read whole body
-    } else if (g_hash_table_lookup(response->headers, "Content-Length")) {
-        int content_length = (int) strtol(g_hash_table_lookup(response->headers, "Content-Length"), NULL, 10);
-        if (content_length > 0) {
-            GByteArray *body_stream = g_byte_array_new();
-            int res = 0;
-            int bufsize = BUFSIZ;
-            unsigned char content_buf[bufsize+1];
-            memset(content_buf, 0, sizeof(content_buf));
-
-            int remaining = content_length;
-            if (remaining < bufsize) bufsize = remaining;
-            while (remaining > 0 && ((res = recv(response->request->context->socket, content_buf, bufsize, 0)) > 0)) {
-                g_byte_array_append(body_stream, content_buf, res);
-                remaining = content_length - body_stream->len;
-                if (bufsize > remaining) bufsize = remaining;
-                memset(content_buf, 0, sizeof(content_buf));
-            }
-
-            if (res < 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) *err = SOCK_TIMEOUT;
-                else *err = SOCK_RECV_FAILED;
-                return FALSE;
-            }
-
-            response->body = body_stream;
-        } else {
-            response->body = NULL;
-        }
-
-    // Transfer-Encoding chunked, read chunks
-    } else if (g_strcmp0(g_hash_table_lookup(response->headers, "Transfer-Encoding"), "chunked") == 0) {
-        int len_res = 0;
-        char len_content_buf[2];
-        memset(len_content_buf, 0, sizeof(len_content_buf));
-        GString *len_stream = g_string_new("");
-        GByteArray *body_stream = g_byte_array_new();
-        gboolean cont = TRUE;
-
-        // read one byte at a time
-        while (cont && ((len_res = recv(response->request->context->socket, len_content_buf, 1, 0)) > 0)) {
-            g_string_append_len(len_stream, len_content_buf, len_res);
-
-            // chunk size read
-            if (g_str_has_suffix(len_stream->str, "\r\n")) {
-                char *chunk_size_str = strndup(len_stream->str, len_stream->len - 2);
-
-                // chunk size 0, finished
-                if (g_strcmp0(chunk_size_str, "0") == 0) {
-                    cont = FALSE;
-                    continue;
-                }
-
-                char *end;
-                errno = 0;
-                int chunk_size = (int) strtol(chunk_size_str, &end, 16);
-                if ((!(errno == 0 && chunk_size_str && !*end)) || (chunk_size < 1)) {
-                    *err = RESP_ERROR_PARSING_CHUNK;
-                    free(chunk_size_str);
-                    return FALSE;
-                }
-                free(chunk_size_str);
-
-                // handle chunk
-                int ch_res = 0;
-                int ch_total = 0;
-                int ch_bufsize = chunk_size;
-                unsigned char ch_content_buf[ch_bufsize+1];
-                memset(ch_content_buf, 0, sizeof(ch_content_buf));
-                int ch_remaining = chunk_size;
-
-                // read chunk
-                while (ch_remaining > 0 && ((ch_res = recv(response->request->context->socket, ch_content_buf, ch_bufsize, 0)) > 0)) {
-                    ch_total += ch_res;
-                    g_byte_array_append(body_stream, ch_content_buf, ch_res);
-                    ch_remaining = chunk_size - ch_total;
-                    if (ch_bufsize > ch_remaining) ch_bufsize = ch_remaining;
-                    memset(ch_content_buf, 0, sizeof(ch_content_buf));
-                }
-
-                if (ch_res < 0) {
-                    if (errno == EAGAIN || errno == EWOULDBLOCK) *err = SOCK_TIMEOUT;
-                    else *err = SOCK_RECV_FAILED;
-                    return FALSE;
-                }
-
-                // skip terminating \r\n after chunk data
-                int skip = 0;
-                while (skip < 2 && ((ch_res = recv(response->request->context->socket, ch_content_buf, 1, 0)) > 0)) {
-                    skip++;
-                    memset(ch_content_buf, 0, sizeof(ch_content_buf));
-                }
-
-                if (ch_res < 0) {
-                    if (errno == EAGAIN || errno == EWOULDBLOCK) *err = SOCK_TIMEOUT;
-                    else *err = SOCK_RECV_FAILED;
-                    return FALSE;
-                }
-
-                // reset length stream
-                g_string_free(len_stream, TRUE);
-                len_stream = g_string_new("");
-            }
-
-            memset(len_content_buf, 0, sizeof(len_content_buf));
-        }
-
-        response->body = body_stream;
-
+    } else if (httpresponse_header_equals(response, "Transfer-Encoding", "chunked")) {
+        return _read_chunked(response, err);
     } else {
         response->body = NULL;
     }
@@ -343,3 +193,174 @@ httpnet_close(HttpContext context)
     }
 }
 
+static gboolean
+_read_gzip(HttpResponse response, httpclient_err_t *err)
+{
+    int content_length = (int) strtol(g_hash_table_lookup(response->headers, "Content-Length"), NULL, 10);
+    if (content_length > 0) {
+        GByteArray *body_stream = g_byte_array_new();
+        int res = 0;
+        int bufsize = BUFSIZ;
+        unsigned char content_buf[bufsize+1];
+        memset(content_buf, 0, sizeof(content_buf));
+
+        int remaining = content_length;
+        if (remaining < bufsize) bufsize = remaining;
+        while (remaining > 0 && ((res = recv(response->request->context->socket, content_buf, bufsize, 0)) > 0)) {
+            g_byte_array_append(body_stream, content_buf, res);
+            remaining = content_length - body_stream->len;
+            if (bufsize > remaining) bufsize = remaining;
+            memset(content_buf, 0, sizeof(content_buf));
+        }
+
+        if (res < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) *err = SOCK_TIMEOUT;
+            else *err = SOCK_RECV_FAILED;
+            return FALSE;
+        }
+
+        if (response->request->context->debug) printf("\nGZIPPED LEN: %d\n\n", body_stream->len);
+
+        char inflated[500000];
+        memset(inflated, 0, 500000);
+
+        z_stream infstream;
+        infstream.zalloc = Z_NULL;
+        infstream.zfree = Z_NULL;
+        infstream.opaque = Z_NULL;
+        infstream.avail_in = (uInt)body_stream->len;
+        infstream.next_in = (Bytef *)body_stream->data;
+        infstream.avail_out = (uInt)sizeof(inflated);
+        infstream.next_out = (Bytef *)inflated;
+
+        inflateInit2(&infstream, 16+MAX_WBITS);
+        inflate(&infstream, Z_NO_FLUSH);
+        inflateEnd(&infstream);
+
+        GByteArray *body = g_byte_array_new();
+        g_byte_array_append(body, (unsigned char*)inflated, strlen(inflated));
+        response->body = body;
+        g_byte_array_free(body_stream, TRUE);
+    } else {
+        response->body = NULL;
+    }
+
+    return TRUE;
+}
+
+static gboolean
+_read_text(HttpResponse response, httpclient_err_t *err)
+{
+    int content_length = (int) strtol(g_hash_table_lookup(response->headers, "Content-Length"), NULL, 10);
+    if (content_length > 0) {
+        GByteArray *body_stream = g_byte_array_new();
+        int res = 0;
+        int bufsize = BUFSIZ;
+        unsigned char content_buf[bufsize+1];
+        memset(content_buf, 0, sizeof(content_buf));
+
+        int remaining = content_length;
+        if (remaining < bufsize) bufsize = remaining;
+        while (remaining > 0 && ((res = recv(response->request->context->socket, content_buf, bufsize, 0)) > 0)) {
+            g_byte_array_append(body_stream, content_buf, res);
+            remaining = content_length - body_stream->len;
+            if (bufsize > remaining) bufsize = remaining;
+            memset(content_buf, 0, sizeof(content_buf));
+        }
+
+        if (res < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) *err = SOCK_TIMEOUT;
+            else *err = SOCK_RECV_FAILED;
+            return FALSE;
+        }
+
+        response->body = body_stream;
+    } else {
+        response->body = NULL;
+    }
+
+    return TRUE;
+}
+
+static gboolean
+_read_chunked(HttpResponse response, httpclient_err_t *err)
+{
+    int len_res = 0;
+    char len_content_buf[2];
+    memset(len_content_buf, 0, sizeof(len_content_buf));
+    GString *len_stream = g_string_new("");
+    GByteArray *body_stream = g_byte_array_new();
+    gboolean cont = TRUE;
+
+    // read one byte at a time
+    while (cont && ((len_res = recv(response->request->context->socket, len_content_buf, 1, 0)) > 0)) {
+        g_string_append_len(len_stream, len_content_buf, len_res);
+
+        // chunk size read
+        if (g_str_has_suffix(len_stream->str, "\r\n")) {
+            char *chunk_size_str = strndup(len_stream->str, len_stream->len - 2);
+
+            // chunk size 0, finished
+            if (g_strcmp0(chunk_size_str, "0") == 0) {
+                cont = FALSE;
+                continue;
+            }
+
+            char *end;
+            errno = 0;
+            int chunk_size = (int) strtol(chunk_size_str, &end, 16);
+            if ((!(errno == 0 && chunk_size_str && !*end)) || (chunk_size < 1)) {
+                *err = RESP_ERROR_PARSING_CHUNK;
+                free(chunk_size_str);
+                return FALSE;
+            }
+            free(chunk_size_str);
+
+            // handle chunk
+            int ch_res = 0;
+            int ch_total = 0;
+            int ch_bufsize = chunk_size;
+            unsigned char ch_content_buf[ch_bufsize+1];
+            memset(ch_content_buf, 0, sizeof(ch_content_buf));
+            int ch_remaining = chunk_size;
+
+            // read chunk
+            while (ch_remaining > 0 && ((ch_res = recv(response->request->context->socket, ch_content_buf, ch_bufsize, 0)) > 0)) {
+                ch_total += ch_res;
+                g_byte_array_append(body_stream, ch_content_buf, ch_res);
+                ch_remaining = chunk_size - ch_total;
+                if (ch_bufsize > ch_remaining) ch_bufsize = ch_remaining;
+                memset(ch_content_buf, 0, sizeof(ch_content_buf));
+            }
+
+            if (ch_res < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) *err = SOCK_TIMEOUT;
+                else *err = SOCK_RECV_FAILED;
+                return FALSE;
+            }
+
+            // skip terminating \r\n after chunk data
+            int skip = 0;
+            while (skip < 2 && ((ch_res = recv(response->request->context->socket, ch_content_buf, 1, 0)) > 0)) {
+                skip++;
+                memset(ch_content_buf, 0, sizeof(ch_content_buf));
+            }
+
+            if (ch_res < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) *err = SOCK_TIMEOUT;
+                else *err = SOCK_RECV_FAILED;
+                return FALSE;
+            }
+
+            // reset length stream
+            g_string_free(len_stream, TRUE);
+            len_stream = g_string_new("");
+        }
+
+        memset(len_content_buf, 0, sizeof(len_content_buf));
+    }
+
+    response->body = body_stream;
+
+    return TRUE;
+}

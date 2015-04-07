@@ -80,3 +80,29 @@ httpresponse_headers(HttpResponse response)
 {
     return response->headers;
 }
+
+gboolean
+httpresponse_header_equals(HttpResponse response, char *key, char *val)
+{
+    if (!key) {
+        return FALSE;
+    }
+
+    if (!val) {
+        return FALSE;
+    }
+
+    char *header_val = g_hash_table_lookup(response->headers, key);
+    return (g_strcmp0(header_val, val) == 0);
+}
+
+gboolean
+httpresponse_header_exists(HttpResponse response, char *key)
+{
+    if (!key) {
+        return FALSE;
+    }
+
+    char *header_val = g_hash_table_lookup(response->headers, key);
+    return (header_val != NULL);
+}

@@ -57,6 +57,9 @@ char* httpresponse_status_message(HttpResponse response);
 char* httpresponse_body_to_file(HttpResponse response);
 char* httpresponse_body_as_string(HttpResponse response);
 GHashTable* httpresponse_headers(HttpResponse response);
+gboolean httpresponse_header_equals(HttpResponse response, char *key, char *val);
+gboolean httpresponse_header_exists(HttpResponse response, char *key);
+
 void httpresponse_destroy(HttpResponse response);
 
 #endif
