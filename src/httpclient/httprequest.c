@@ -11,12 +11,13 @@
 #include "httpclient/net/httpnet.h"
 #include "httpclient/httpclient.h"
 #include "httpclient/httpresponse.h"
+#include "httpclient/httperr.h"
 
 HttpRequest
-httprequest_create(HttpContext context, char *resource, char *method, httpclient_err_t *err)
+httprequest_create(HttpContext context, char *resource, char *method, HttpClientError **err)
 {
     if (g_strcmp0(method, HTTPMETHOD_GET) != 0) {
-        *err = REQ_INVALID_METHOD;
+        *err = httperror_create(REQ_INVALID_METHOD, "Unsupported method.");
         return NULL;
     }
 

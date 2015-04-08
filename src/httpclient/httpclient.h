@@ -66,7 +66,7 @@ HttpContext httpcontext_unref(HttpContext ctx);
 void httpcontext_debug(HttpContext ctx, gboolean debug);
 void httpcontext_read_timeout(HttpContext ctx, int read_timeout_ms);
 
-HttpRequest httprequest_create(HttpContext context, char *resource, char *method, httpclient_err_t *err);
+HttpRequest httprequest_create(HttpContext context, char *resource, char *method, HttpClientError **err);
 HttpRequest httprequest_ref(HttpRequest request);
 HttpRequest httprequest_unref(HttpRequest request);
 void httprequest_addheader(HttpRequest request, const char * const key, const char *const val);

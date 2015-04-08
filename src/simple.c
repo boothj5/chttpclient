@@ -17,15 +17,17 @@ int main(void)
     httpcontext_debug(ctx, TRUE);
     httpcontext_read_timeout(ctx, 3000);
 
-    httpclient_err_t r_err;
-    HttpRequest request = httprequest_create(ctx, "/reference.html", HTTPMETHOD_GET, &r_err);
-    if (!request) {
-        http_error("Error creating request", r_err);
+    HttpRequest request = httprequest_create(ctx, "/reference.html", HTTPMETHOD_GET, &err);
+    if (err) {
+        printf("%s\n", err->message);
+        httperror_destroy(err);
         return 1;
     }
+
     httprequest_addheader(request, HTTPHKEY_USER_AGENT, "HTTPCLIENT/1.0");
     httprequest_addheader(request, HTTPHKEY_ACCEPT_ENCODING, HTTPHVAL_GZIP);
 
+    httpclient_err_t r_err;
     HttpResponse response = httprequest_perform(request, &r_err);
     if (!response) {
         http_error("Error performing request", r_err);
