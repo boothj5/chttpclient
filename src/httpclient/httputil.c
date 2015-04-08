@@ -2,6 +2,8 @@
 #include <string.h>
 #include <errno.h>
 
+#include <zlib.h>
+
 #include "httpclient.h"
 
 HttpUrl*
@@ -75,4 +77,29 @@ httputil_url_destroy(HttpUrl *url)
         free(url->resource);
         free(url);
     }
+}
+
+GByteArray *
+httputil_gzip_inflate(GByteArray *deflated)
+{
+    char inflated[500000];
+    memset(inflated, 0, 500000);
+
+    z_stream infstream;
+    infstream.zalloc = Z_NULL;
+    infstream.zfree = Z_NULL;
+    infstream.opaque = Z_NULL;
+    infstream.avail_in = (uInt)deflated->len;
+    infstream.next_in = (Bytef *)deflated->data;
+    infstream.avail_out = (uInt)sizeof(inflated);
+    infstream.next_out = (Bytef *)inflated;
+
+    inflateInit2(&infstream, 16+MAX_WBITS);
+    inflate(&infstream, Z_NO_FLUSH);
+    inflateEnd(&infstream);
+
+    GByteArray *body_inflate = g_byte_array_new();
+    g_byte_array_append(body_inflate, (unsigned char*)inflated, strlen(inflated));
+
+    return body_inflate;
 }

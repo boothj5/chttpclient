@@ -5,7 +5,7 @@ library_sources = \
 	src/httpclient/httprequest.c src/httpclient/httprequest.h \
 	src/httpclient/httpresponse.c src/httpclient/httpresponse.h \
 	src/httpclient/httpnet.c src/httpclient/httpnet.h \
-	src/httpclient/httputil.c
+	src/httpclient/httputil.c src/httpclient/httputil.h
 
 bin_PROGRAMS = simple cmdline download
 simple_SOURCES = src/simple.c $(library_sources)

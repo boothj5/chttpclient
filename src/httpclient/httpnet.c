@@ -4,20 +4,12 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <errno.h>
-
-#include <zlib.h>
+#include <unistd.h>
 
 #include "httpclient.h"
 #include "httprequest.h"
 #include "httpresponse.h"
-
-static GByteArray* _inflate(GByteArray *body);
-
-static gboolean _read_text(HttpResponse response, httpclient_err_t *err);
-static gboolean _read_chunked_text(HttpResponse response, httpclient_err_t *err);
-
-static gboolean _read_gzip(HttpResponse response, httpclient_err_t *err);
-static gboolean _read_chunked_gzip(HttpResponse response, httpclient_err_t *err);
+#include "httputil.h"
 
 static GByteArray* _stream_content(int socket, int len, httpclient_err_t *err);
 static GByteArray* _stream_chunks(int socket, httpclient_err_t *err);
@@ -176,20 +168,31 @@ httpnet_read_headers(HttpResponse response, httpclient_err_t *err)
 gboolean
 httpnet_read_body(HttpResponse response, httpclient_err_t *err)
 {
+    GByteArray *body_contents = NULL;
+    int socket = response->request->context->socket;
+    response->body = NULL;
+
+    // read full
     if (httpresponse_header_exists(response, HTTPHKEY_CONTENT_LENGTH)) {
-        if (httpresponse_header_equals(response, HTTPHKEY_CONTENT_ENCODING, HTTPHVAL_GZIP)) {
-            return _read_gzip(response, err);
-        } else {
-            return _read_text(response, err);
-        }
+        char *content_length_str = g_hash_table_lookup(response->headers, HTTPHKEY_CONTENT_LENGTH);
+        int content_length = (int) strtol(content_length_str, NULL, 10);
+        body_contents = _stream_content(socket, content_length, err);
+
+    // read chunked
     } else if (httpresponse_header_equals(response, HTTPHKEY_TRANSFER_ENCODING, HTTPHVAL_CHUNKED)) {
+        body_contents = _stream_chunks(socket, err);
+    }
+
+    if (body_contents) {
+        // gzipped
         if (httpresponse_header_equals(response, HTTPHKEY_CONTENT_ENCODING, HTTPHVAL_GZIP)) {
-            return _read_chunked_gzip(response, err);
+            response->body = httputil_gzip_inflate(body_contents);
+            g_byte_array_free(body_contents, TRUE);
+
+        // normal
         } else {
-            return _read_chunked_text(response, err);
+            response->body = body_contents;
         }
-    } else {
-        response->body = NULL;
     }
 
     return TRUE;
@@ -201,91 +204,6 @@ httpnet_close(HttpContext context)
     if (context->socket != -1) {
         close(context->socket);
         context->socket = -1;
-    }
-}
-
-static gboolean
-_read_text(HttpResponse response, httpclient_err_t *err)
-{
-    int content_length = (int) strtol(g_hash_table_lookup(response->headers, HTTPHKEY_CONTENT_LENGTH), NULL, 10);
-    GByteArray *body = _stream_content(response->request->context->socket, content_length, err);
-    if (!body) {
-        return FALSE;
-    } else {
-        response->body = body;
-        return TRUE;
-    }
-}
-
-static gboolean
-_read_chunked_text(HttpResponse response, httpclient_err_t *err)
-{
-    GByteArray *body = _stream_chunks(response->request->context->socket, err);
-    if (!body) {
-        return FALSE;
-    } else {
-        response->body = body;
-        return TRUE;
-    }
-}
-
-static GByteArray*
-_inflate(GByteArray *body)
-{
-    char inflated[500000];
-    memset(inflated, 0, 500000);
-
-    z_stream infstream;
-    infstream.zalloc = Z_NULL;
-    infstream.zfree = Z_NULL;
-    infstream.opaque = Z_NULL;
-    infstream.avail_in = (uInt)body->len;
-    infstream.next_in = (Bytef *)body->data;
-    infstream.avail_out = (uInt)sizeof(inflated);
-    infstream.next_out = (Bytef *)inflated;
-
-    inflateInit2(&infstream, 16+MAX_WBITS);
-    inflate(&infstream, Z_NO_FLUSH);
-    inflateEnd(&infstream);
-
-    GByteArray *body_inflate = g_byte_array_new();
-    g_byte_array_append(body_inflate, (unsigned char*)inflated, strlen(inflated));
-
-    return body_inflate;
-}
-
-static gboolean
-_read_gzip(HttpResponse response, httpclient_err_t *err)
-{
-    int content_length = (int) strtol(g_hash_table_lookup(response->headers, HTTPHKEY_CONTENT_LENGTH), NULL, 10);
-    GByteArray *body = _stream_content(response->request->context->socket, content_length, err);
-    if (!body) {
-        return FALSE;
-    } else {
-        if (response->request->context->debug) printf("\nGZIPPED LEN: %d\n\n", body->len);
-
-        response->body = _inflate(body);
-
-        g_byte_array_free(body, TRUE);
-
-        return TRUE;
-    }
-}
-
-static gboolean
-_read_chunked_gzip(HttpResponse response, httpclient_err_t *err)
-{
-    GByteArray *body = _stream_chunks(response->request->context->socket, err);
-    if (!body) {
-        return FALSE;
-    } else {
-        if (response->request->context->debug) printf("\nGZIPPED LEN: %d\n\n", body->len);
-
-        response->body = _inflate(body);
-
-        g_byte_array_free(body, TRUE);
-
-        return TRUE;
     }
 }
 
