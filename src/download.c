@@ -57,7 +57,12 @@ main(int argc, char *argv[])
 
     int status = httpresponse_status(response);
     if (status == 200) {
-        char *filename = httpresponse_body_to_file(response);
+        char *filename = httpresponse_body_to_file(response, &r_err);
+        if (!filename) {
+            http_error("Error reading body", r_err);
+            return 1;
+        }
+
         printf("Saved to file: %s\n", filename);
 
         GHashTable *headers = httpresponse_headers(response);
@@ -83,6 +88,10 @@ main(int argc, char *argv[])
     }
 
     httputil_url_destroy(url);
+
+    httpresponse_destroy(response);
+    httprequest_unref(request);
+    httpcontext_unref(ctx);
 
     return 0;
 }

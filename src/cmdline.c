@@ -77,13 +77,19 @@ main(int argc, char *argv[])
         printf("\n");
     }
 
-    char *body = httpresponse_body_as_string(response);
-    if (body) {
+    char *body = httpresponse_body_as_string(response, &r_err);
+    if (!body) {
+        http_error("Error reading body", r_err);
+    } else {
         printf("Body:\n%s\n", body);
         free(body);
     }
 
     httputil_url_destroy(url);
+
+    httpresponse_destroy(response);
+    httprequest_unref(request);
+    httpcontext_unref(ctx);
 
     return 0;
 }

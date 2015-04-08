@@ -60,12 +60,6 @@ httprequest_perform(HttpRequest request, httpclient_err_t *err)
     HttpResponse response = httpresponse_create(request, err);
     if (!response) return NULL;
 
-    // read body
-    gboolean body_read = httpnet_read_body(response, err);
-    if (!body_read) return NULL;
-
-    httpnet_close(request->context);
-
     return response;
 }
 

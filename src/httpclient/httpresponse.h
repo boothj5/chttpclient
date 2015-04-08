@@ -7,6 +7,7 @@ struct httpresponse_t {
     char *status_msg;
     GHashTable *headers;
     GByteArray *body;
+    gboolean body_read;
 };
 
 HttpResponse httpresponse_create(HttpRequest request, httpclient_err_t *err);

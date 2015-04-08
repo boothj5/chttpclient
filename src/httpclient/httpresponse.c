@@ -18,6 +18,7 @@ httpresponse_create(HttpRequest request, httpclient_err_t *err)
     response->status_msg = NULL;
     response->headers = NULL;
     response->body = NULL;
+    response->body_read = FALSE;
 
     // read headers
     gboolean headers_read = httpnet_read_headers(response, err);
@@ -33,6 +34,9 @@ void
 httpresponse_destroy(HttpResponse response)
 {
     if (response) {
+        // close socket
+        httpnet_close(response->request->context);
+
         free(response->status_msg);
         if (response->headers) g_hash_table_destroy(response->headers);
         if (response->body) g_byte_array_free(response->body, TRUE);
@@ -54,8 +58,13 @@ httpresponse_status_message(HttpResponse response)
 }
 
 char*
-httpresponse_body_to_file(HttpResponse response)
+httpresponse_body_to_file(HttpResponse response, httpclient_err_t *err)
 {
+    if (!response->body_read) {
+        response->body_read = httpnet_read_body(response, err);
+        if (!response->body_read) return NULL;
+    }
+
     char *last_slash = g_strrstr(response->request->resource, "/");
 
     char *filename = NULL;
@@ -76,8 +85,13 @@ httpresponse_body_to_file(HttpResponse response)
 }
 
 char*
-httpresponse_body_as_string(HttpResponse response)
+httpresponse_body_as_string(HttpResponse response, httpclient_err_t *err)
 {
+    if (!response->body_read) {
+        response->body_read = httpnet_read_body(response, err);
+        if (!response->body_read) return NULL;
+    }
+
     if (response->body) {
         char *body = strndup((char *)response->body->data, response->body->len);
         return body;
