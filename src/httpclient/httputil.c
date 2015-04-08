@@ -5,17 +5,18 @@
 #include <zlib.h>
 
 #include "httpclient/httpclient.h"
+#include "httpclient/httperr.h"
 
 HttpUrl*
-httputil_url_parse(char *url_s, httpclient_err_t *err)
+httputil_url_parse(char *url_s, HttpClientError **err)
 {
     char *scheme = g_uri_parse_scheme(url_s);
     if (!scheme) {
-        *err = URL_NO_SCHEME;
+        *err = httperror_create(URL_NO_SCHEME, "No scheme.");
         return NULL;
     }
     if ((strcmp(scheme, "http") != 0) && (strcmp(scheme, "https") != 0)) {
-        *err = URL_INVALID_SCHEME;
+        *err = httperror_create(URL_INVALID_SCHEME, "Invalid scheme.");
         g_free(scheme);
         return NULL;
     }
@@ -44,7 +45,7 @@ httputil_url_parse(char *url_s, httpclient_err_t *err)
         errno = 0;
         port = (int) strtol(port_s, &end, 10);
         if ((!(errno == 0 && port_s && !*end)) || (port < 1)) {
-            *err = URL_INVALID_PORT;
+            *err = httperror_create(URL_INVALID_PORT, "Invalid port.");
             g_free(scheme);
             free(host);
             free(port_s);

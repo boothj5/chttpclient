@@ -16,10 +16,12 @@ main(int argc, char *argv[])
 
     char *arg_url = argv[1];
 
-    httpclient_err_t r_err;
-    HttpUrl *url = httputil_url_parse(arg_url, &r_err);
-    if (!url) {
-        http_error("Error parsing URL", r_err);
+    HttpClientError *err = NULL;
+
+    HttpUrl *url = httputil_url_parse(arg_url, &err);
+    if (err) {
+        printf("%s\n", err->message);
+        httperror_destroy(err);
         return 1;
     }
 
@@ -29,14 +31,17 @@ main(int argc, char *argv[])
         g_string_append_printf(host, ":%d", url->port);
     }
 
-    HttpContext ctx = httpcontext_create(host->str, &r_err);
-    if (!ctx) {
-        http_error("Error creating context", r_err);
+    HttpContext ctx = httpcontext_create(host->str, &err);
+    if (err) {
+        printf("%s\n", err->message);
+        httperror_destroy(err);
         return 1;
     }
 
     httpcontext_debug(ctx, TRUE);
     httpcontext_read_timeout(ctx, 3000);
+
+    httpclient_err_t r_err;
 
     HttpRequest request = httprequest_create(ctx, url->resource, HTTPMETHOD_GET, &r_err);
     if (!request) {

@@ -37,6 +37,11 @@ typedef enum {
     GZIP_FAILED
 } httpclient_err_t;
 
+typedef struct httpclient_error_t {
+    httpclient_err_t code;
+    char *message;
+} HttpClientError;
+
 typedef struct httpurl_t {
     char *scheme;
     char *host;
@@ -49,11 +54,13 @@ typedef struct httpresponse_t *HttpResponse;
 typedef struct httpcontext_t *HttpContext;
 
 void http_error(char *prefix, httpclient_err_t err);
+char* httperror_getmessage(HttpClientError *err, char *prefix);
+void httperror_destroy(HttpClientError *error);
 
-HttpUrl* httputil_url_parse(char *url_s, httpclient_err_t *err);
+HttpUrl* httputil_url_parse(char *url_s, HttpClientError **err);
 void httputil_url_destroy(HttpUrl *url);
 
-HttpContext httpcontext_create(char *host, httpclient_err_t *err);
+HttpContext httpcontext_create(char *host, HttpClientError **err);
 HttpContext httpcontext_ref(HttpContext ctx);
 HttpContext httpcontext_unref(HttpContext ctx);
 void httpcontext_debug(HttpContext ctx, gboolean debug);

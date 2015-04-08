@@ -1,20 +1,23 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "httpclient/httpclient.h"
 
 int main(void)
 {
-    httpclient_err_t r_err;
+    HttpClientError *err = NULL;
 
-    HttpContext ctx = httpcontext_create("http://www.profanity.im", &r_err);
-    if (!ctx) {
-        http_error("Error creating context", r_err);
+    HttpContext ctx = httpcontext_create("http://www.profanity.im", &err);
+    if (err) {
+        printf("%s\n", err->message);
+        httperror_destroy(err);
         return 1;
     }
 
     httpcontext_debug(ctx, TRUE);
     httpcontext_read_timeout(ctx, 3000);
 
+    httpclient_err_t r_err;
     HttpRequest request = httprequest_create(ctx, "/reference.html", HTTPMETHOD_GET, &r_err);
     if (!request) {
         http_error("Error creating request", r_err);

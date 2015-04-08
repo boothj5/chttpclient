@@ -7,7 +7,7 @@
 #include "httpclient/httpcontext.h"
 
 HttpContext
-httpcontext_create(char *host, httpclient_err_t *err)
+httpcontext_create(char *host, HttpClientError **err)
 {
     HttpUrl *url = httputil_url_parse(host, err);
     if (!url) {
