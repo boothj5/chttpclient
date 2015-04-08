@@ -2,7 +2,7 @@
 
 #include <glib.h>
 
-#include "httpclient.h"
+#include "httpclient/httpclient.h"
 
 void
 http_error(char *prefix, httpclient_err_t err)

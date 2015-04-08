@@ -7,10 +7,10 @@
 
 #include <glib.h>
 
-#include "httprequest.h"
-#include "httpnet.h"
-#include "httpclient.h"
-#include "httpresponse.h"
+#include "httpclient/httprequest.h"
+#include "httpclient/net/httpnet.h"
+#include "httpclient/httpclient.h"
+#include "httpclient/httpresponse.h"
 
 HttpRequest
 httprequest_create(HttpContext context, char *resource, char *method, httpclient_err_t *err)

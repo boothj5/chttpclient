@@ -5,9 +5,9 @@
 
 #include <glib.h>
 
-#include "httpclient.h"
-#include "httprequest.h"
-#include "httpresponse.h"
+#include "httpclient/httpclient.h"
+#include "httpclient/httprequest.h"
+#include "httpclient/httpresponse.h"
 
 HttpResponse
 httpresponse_create(HttpRequest request)

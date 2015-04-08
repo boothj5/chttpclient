@@ -1,10 +1,10 @@
 library_sources = \
 	src/httpclient/httperr.c \
 	src/httpclient/httpclient.h \
+	src/httpclient/net/httpnet.c src/httpclient/net/httpnet.h \
 	src/httpclient/httpcontext.c src/httpclient/httpcontext.h \
 	src/httpclient/httprequest.c src/httpclient/httprequest.h \
 	src/httpclient/httpresponse.c src/httpclient/httpresponse.h \
-	src/httpclient/httpnet.c src/httpclient/httpnet.h \
 	src/httpclient/httputil.c src/httpclient/httputil.h
 
 bin_PROGRAMS = simple cmdline download

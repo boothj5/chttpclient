@@ -3,8 +3,8 @@
 
 #include <glib.h>
 
-#include "httpclient.h"
-#include "httpcontext.h"
+#include "httpclient/httpclient.h"
+#include "httpclient/httpcontext.h"
 
 HttpContext
 httpcontext_create(char *host, httpclient_err_t *err)

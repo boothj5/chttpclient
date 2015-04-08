@@ -3,7 +3,7 @@
 
 #include <glib.h>
 
-#include "httpcontext.h"
+#include "httpclient/httpcontext.h"
 
 #define HTTPHKEY_HOST "Host"
 #define HTTPHKEY_USER_AGENT "User-Agent"

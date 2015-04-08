@@ -25,6 +25,9 @@ src/stamp-h1
 simple
 src/httpclient/httputil.o
 src/simple.o
+src/httpclient/net/.deps/
+src/httpclient/net/.dirstamp
+src/httpclient/net/httpnet.o
 
 .codelite/
 chttpclient.project

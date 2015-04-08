@@ -6,10 +6,10 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include "httpclient.h"
-#include "httprequest.h"
-#include "httpresponse.h"
-#include "httputil.h"
+#include "httpclient/httpclient.h"
+#include "httpclient/httprequest.h"
+#include "httpclient/httpresponse.h"
+#include "httpclient/httputil.h"
 
 static GByteArray* _stream_content(int socket, int len, httpclient_err_t *err);
 static GByteArray* _stream_chunks(int socket, httpclient_err_t *err);

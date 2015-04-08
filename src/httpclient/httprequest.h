@@ -3,7 +3,7 @@
 
 #include <glib.h>
 
-#include "httpclient.h"
+#include "httpclient/httpclient.h"
 
 struct httprequest_t {
     int refcount;

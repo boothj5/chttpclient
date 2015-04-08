@@ -4,7 +4,7 @@
 
 #include <zlib.h>
 
-#include "httpclient.h"
+#include "httpclient/httpclient.h"
 
 HttpUrl*
 httputil_url_parse(char *url_s, httpclient_err_t *err)
