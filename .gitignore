@@ -21,6 +21,7 @@ src/httpclient/httperr.o
 src/httpclient/httpnet.o
 src/httpclient/httprequest.o
 src/httpclient/httpresponse.o
+src/httpclient/net/httpbodystreams.o
 src/stamp-h1
 simple
 src/httpclient/httputil.o
