@@ -35,10 +35,10 @@ typedef enum {
     GZIP_INSUFFICIENT_MEMORY,
     GZIP_CORRUPT,
     GZIP_FAILED
-} httpclient_err_t;
+} httpclient_errcode_t;
 
 typedef struct httpclient_error_t {
-    httpclient_err_t code;
+    httpclient_errcode_t code;
     char *message;
 } HttpClientError;
 

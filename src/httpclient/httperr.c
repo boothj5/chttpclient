@@ -7,7 +7,7 @@
 #include "httpclient/httpclient.h"
 
 HttpClientError*
-httperror_create(httpclient_err_t code, char *message)
+httperror_create(httpclient_errcode_t code, char *message)
 {
     HttpClientError *result = malloc(sizeof(HttpClientError));
     result->code = code;
