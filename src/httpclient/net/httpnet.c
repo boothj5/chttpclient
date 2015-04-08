@@ -11,13 +11,14 @@
 #include "httpclient/httpresponse.h"
 #include "httpclient/httputil.h"
 #include "httpclient/net/httpbodystreams.h"
+#include "httpclient/httperr.h"
 
 void
-httpnet_connect(HttpContext context, httpclient_err_t *err)
+httpnet_connect(HttpContext context, HttpClientError **err)
 {
     struct hostent *he = gethostbyname(context->host);
     if (he == NULL) {
-        *err = HOST_LOOKUP_FAILED;
+        *err = httperror_create(HOST_LOOKUP_FAILED, "Host lookup failed.");
         return;
     }
 
@@ -35,7 +36,7 @@ httpnet_connect(HttpContext context, httpclient_err_t *err)
 
     context->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (context->socket == -1) {
-        *err = SOCK_CREATE_FAILED;
+        *err = httperror_create(SOCK_CREATE_FAILED, "Failed to create socket.");
         return;
     }
 
@@ -55,14 +56,14 @@ httpnet_connect(HttpContext context, httpclient_err_t *err)
     server.sin_port = htons(context->port); // host to network byte order
 
     if (connect(context->socket, (struct sockaddr*)&server, sizeof(server)) < 0) {
-        *err = SOCK_CONNECT_FAILED;
+        *err = httperror_create(SOCK_CONNECT_FAILED, "Socket connect failed");
         return;
     }
     if (context->debug) printf("Connected successfully.\n");
 }
 
-gboolean
-httpnet_send(HttpRequest request, httpclient_err_t *err)
+void
+httpnet_send(HttpRequest request, HttpClientError **err)
 {
     GString *req = g_string_new("");
     g_string_append(req, "GET ");
@@ -89,19 +90,18 @@ httpnet_send(HttpRequest request, httpclient_err_t *err)
     while (sent < req->len) {
         int res = send(request->context->socket, req->str+sent, req->len-sent, 0);
         if (res == -1) {
-            *err = SOCK_SEND_FAILED;
+            *err = httperror_create(SOCK_SEND_FAILED, "Socket send failed.");
             g_string_free(req, TRUE);
-            return FALSE;
+            return;
         }
         sent += res;
     }
 
     g_string_free(req, TRUE);
-    return TRUE;
 }
 
-gboolean
-httpnet_read_headers(HttpResponse response, httpclient_err_t *err)
+void
+httpnet_read_headers(HttpResponse response, HttpClientError **err)
 {
     char header_buf[2];
     memset(header_buf, 0, sizeof(header_buf));
@@ -116,9 +116,9 @@ httpnet_read_headers(HttpResponse response, httpclient_err_t *err)
     }
 
     if (res < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) *err = SOCK_TIMEOUT;
-        else *err = SOCK_RECV_FAILED;
-        return FALSE;
+        if (errno == EAGAIN || errno == EWOULDBLOCK) *err = httperror_create(SOCK_TIMEOUT, "Socket read timeout.");
+        else *err = httperror_create(SOCK_RECV_FAILED, "Socket read failed.");
+        return;
     }
 
     int status = 0;
@@ -159,12 +159,10 @@ httpnet_read_headers(HttpResponse response, httpclient_err_t *err)
     response->status = status;
     response->status_msg = status_msg;
     response->headers = headers_ht;
-
-    return TRUE;
 }
 
-gboolean
-httpnet_read_body(HttpResponse response, httpclient_err_t *err)
+void
+httpnet_read_body(HttpResponse response, HttpClientError **err)
 {
     GByteArray *body_contents = NULL;
     int socket = response->request->context->socket;
@@ -175,10 +173,16 @@ httpnet_read_body(HttpResponse response, httpclient_err_t *err)
         char *content_length_str = g_hash_table_lookup(response->headers, HTTPHKEY_CONTENT_LENGTH);
         int content_length = (int) strtol(content_length_str, NULL, 10);
         body_contents = httpbodystream_len(socket, content_length, err);
+        if (*err) {
+            return;
+        }
 
     // read chunked
     } else if (httpresponse_header_equals(response, HTTPHKEY_TRANSFER_ENCODING, HTTPHVAL_CHUNKED)) {
         body_contents = httpbodystream_chunked(socket, err);
+        if (*err) {
+            return;
+        }
     }
 
     if (body_contents) {
@@ -193,7 +197,7 @@ httpnet_read_body(HttpResponse response, httpclient_err_t *err)
         }
     }
 
-    return TRUE;
+    response->body_read = TRUE;
 }
 
 void

@@ -11,7 +11,7 @@
 #include "httpclient/net/httpnet.h"
 
 HttpResponse
-httpresponse_create(HttpRequest request, httpclient_err_t *err)
+httpresponse_create(HttpRequest request, HttpClientError **err)
 {
     HttpResponse response = malloc(sizeof(struct httpresponse_t));
     response->request = httprequest_ref(request);
@@ -21,13 +21,13 @@ httpresponse_create(HttpRequest request, httpclient_err_t *err)
     response->body_read = FALSE;
 
     // read headers
-    gboolean headers_read = httpnet_read_headers(response, err);
-    if (!headers_read) {
+    httpnet_read_headers(response, err);
+    if (*err) {
         httpresponse_destroy(response);
         return NULL;
-    } else {
-        return response;
     }
+
+    return response;
 }
 
 void
@@ -58,11 +58,13 @@ httpresponse_status_message(HttpResponse response)
 }
 
 char*
-httpresponse_body_to_file(HttpResponse response, httpclient_err_t *err)
+httpresponse_body_to_file(HttpResponse response, HttpClientError **err)
 {
     if (!response->body_read) {
-        response->body_read = httpnet_read_body(response, err);
-        if (!response->body_read) return NULL;
+        httpnet_read_body(response, err);
+        if (*err) {
+            return NULL;
+        }
     }
 
     char *last_slash = g_strrstr(response->request->resource, "/");
@@ -85,11 +87,13 @@ httpresponse_body_to_file(HttpResponse response, httpclient_err_t *err)
 }
 
 char*
-httpresponse_body_as_string(HttpResponse response, httpclient_err_t *err)
+httpresponse_body_as_string(HttpResponse response, HttpClientError **err)
 {
     if (!response->body_read) {
-        response->body_read = httpnet_read_body(response, err);
-        if (!response->body_read) return NULL;
+        httpnet_read_body(response, err);
+        if (*err) {
+            return NULL;
+        }
     }
 
     if (response->body) {

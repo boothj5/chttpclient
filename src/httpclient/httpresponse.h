@@ -10,6 +10,6 @@ struct httpresponse_t {
     gboolean body_read;
 };
 
-HttpResponse httpresponse_create(HttpRequest request, httpclient_err_t *err);
+HttpResponse httpresponse_create(HttpRequest request, HttpClientError **err);
 
 #endif

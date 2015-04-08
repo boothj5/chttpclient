@@ -10,7 +10,7 @@ HttpContext
 httpcontext_create(char *host, HttpClientError **err)
 {
     HttpUrl *url = httputil_url_parse(host, err);
-    if (!url) {
+    if (*err) {
         return NULL;
     }
 

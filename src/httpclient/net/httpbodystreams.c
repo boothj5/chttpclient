@@ -7,9 +7,10 @@
 #include <glib.h>
 
 #include "httpclient/httpclient.h"
+#include "httpclient/httperr.h"
 
 GByteArray*
-httpbodystream_len(int socket, int len, httpclient_err_t *err)
+httpbodystream_len(int socket, int len, HttpClientError **err)
 {
     if (len > 0) {
         GByteArray *body_stream = g_byte_array_new();
@@ -28,8 +29,8 @@ httpbodystream_len(int socket, int len, httpclient_err_t *err)
         }
 
         if (res < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) *err = SOCK_TIMEOUT;
-            else *err = SOCK_RECV_FAILED;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) *err = httperror_create(SOCK_TIMEOUT, "Socket read timeout.");
+            else *err = httperror_create(SOCK_RECV_FAILED, "Socket read failed.");
             return NULL;
         }
 
@@ -40,7 +41,7 @@ httpbodystream_len(int socket, int len, httpclient_err_t *err)
 }
 
 GByteArray*
-httpbodystream_chunked(int socket, httpclient_err_t *err)
+httpbodystream_chunked(int socket, HttpClientError **err)
 {
     int len_res = 0;
     char len_content_buf[2];
@@ -67,7 +68,7 @@ httpbodystream_chunked(int socket, httpclient_err_t *err)
             errno = 0;
             int chunk_size = (int) strtol(chunk_size_str, &end, 16);
             if ((!(errno == 0 && chunk_size_str && !*end)) || (chunk_size < 1)) {
-                *err = RESP_ERROR_PARSING_CHUNK;
+                *err = httperror_create(RESP_ERROR_PARSING_CHUNK, "Error parsing chunked content.");
                 free(chunk_size_str);
                 return NULL;
             }
@@ -91,8 +92,8 @@ httpbodystream_chunked(int socket, httpclient_err_t *err)
             }
 
             if (ch_res < 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) *err = SOCK_TIMEOUT;
-                else *err = SOCK_RECV_FAILED;
+                if (errno == EAGAIN || errno == EWOULDBLOCK) *err = httperror_create(SOCK_TIMEOUT, "Socket read timeout.");
+                else *err = httperror_create(SOCK_RECV_FAILED, "Socket read failed.");
                 return NULL;
             }
 
@@ -104,8 +105,8 @@ httpbodystream_chunked(int socket, httpclient_err_t *err)
             }
 
             if (ch_res < 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) *err = SOCK_TIMEOUT;
-                else *err = SOCK_RECV_FAILED;
+                if (errno == EAGAIN || errno == EWOULDBLOCK) *err = httperror_create(SOCK_TIMEOUT, "Socket read timeout.");
+                else *err = httperror_create(SOCK_RECV_FAILED, "Socket read failed.");
                 return NULL;
             }
 

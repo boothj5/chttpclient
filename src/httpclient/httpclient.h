@@ -53,7 +53,6 @@ typedef struct httprequest_t *HttpRequest;
 typedef struct httpresponse_t *HttpResponse;
 typedef struct httpcontext_t *HttpContext;
 
-void http_error(char *prefix, httpclient_err_t err);
 char* httperror_getmessage(HttpClientError *err, char *prefix);
 void httperror_destroy(HttpClientError *error);
 
@@ -70,12 +69,12 @@ HttpRequest httprequest_create(HttpContext context, char *resource, char *method
 HttpRequest httprequest_ref(HttpRequest request);
 HttpRequest httprequest_unref(HttpRequest request);
 void httprequest_addheader(HttpRequest request, const char * const key, const char *const val);
-HttpResponse httprequest_perform(HttpRequest request, httpclient_err_t *err);
+HttpResponse httprequest_perform(HttpRequest request, HttpClientError **err);
 
 int httpresponse_status(HttpResponse response);
 char* httpresponse_status_message(HttpResponse response);
-char* httpresponse_body_to_file(HttpResponse response, httpclient_err_t *err);
-char* httpresponse_body_as_string(HttpResponse response, httpclient_err_t *err);
+char* httpresponse_body_to_file(HttpResponse response, HttpClientError **err);
+char* httpresponse_body_as_string(HttpResponse response, HttpClientError **err);
 GHashTable* httpresponse_headers(HttpResponse response);
 gboolean httpresponse_header_equals(HttpResponse response, char *key, char *val);
 gboolean httpresponse_header_exists(HttpResponse response, char *key);

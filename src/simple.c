@@ -27,10 +27,10 @@ int main(void)
     httprequest_addheader(request, HTTPHKEY_USER_AGENT, "HTTPCLIENT/1.0");
     httprequest_addheader(request, HTTPHKEY_ACCEPT_ENCODING, HTTPHVAL_GZIP);
 
-    httpclient_err_t r_err;
-    HttpResponse response = httprequest_perform(request, &r_err);
-    if (!response) {
-        http_error("Error performing request", r_err);
+    HttpResponse response = httprequest_perform(request, &err);
+    if (err) {
+        printf("%s\n", err->message);
+        httperror_destroy(err);
         return 1;
     }
 

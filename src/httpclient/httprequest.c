@@ -47,19 +47,25 @@ httprequest_addheader(HttpRequest request, const char * const key, const char *c
 }
 
 HttpResponse
-httprequest_perform(HttpRequest request, httpclient_err_t *err)
+httprequest_perform(HttpRequest request, HttpClientError **err)
 {
     // connect socket
     httpnet_connect(request->context, err);
-    if (request->context->socket == -1) return NULL;
+    if (*err) {
+        return NULL;
+    }
 
     // send request
-    gboolean sent = httpnet_send(request, err);
-    if (!sent) return NULL;
+    httpnet_send(request, err);
+    if (*err) {
+        return NULL;
+    }
 
     // create response
     HttpResponse response = httpresponse_create(request, err);
-    if (!response) return NULL;
+    if (*err) {
+        return NULL;
+    }
 
     return response;
 }
