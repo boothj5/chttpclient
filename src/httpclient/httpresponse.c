@@ -8,14 +8,25 @@
 #include "httpclient/httpclient.h"
 #include "httpclient/httprequest.h"
 #include "httpclient/httpresponse.h"
+#include "httpclient/net/httpnet.h"
 
 HttpResponse
-httpresponse_create(HttpRequest request)
+httpresponse_create(HttpRequest request, httpclient_err_t *err)
 {
     HttpResponse response = malloc(sizeof(struct httpresponse_t));
     response->request = httprequest_ref(request);
+    response->status_msg = NULL;
+    response->headers = NULL;
+    response->body = NULL;
 
-    return response;
+    // read headers
+    gboolean headers_read = httpnet_read_headers(response, err);
+    if (!headers_read) {
+        httpresponse_destroy(response);
+        return NULL;
+    } else {
+        return response;
+    }
 }
 
 void

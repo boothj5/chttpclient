@@ -57,11 +57,7 @@ httprequest_perform(HttpRequest request, httpclient_err_t *err)
     if (!sent) return NULL;
 
     // create response
-    HttpResponse response = httpresponse_create(request);
-
-    // read headers
-    gboolean headers_read = httpnet_read_headers(response, err);
-    if (!headers_read) return NULL;
+    HttpResponse response = httpresponse_create(request, err);
 
     // read body
     gboolean body_read = httpnet_read_body(response, err);

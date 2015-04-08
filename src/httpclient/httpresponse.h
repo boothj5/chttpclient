@@ -9,6 +9,6 @@ struct httpresponse_t {
     GByteArray *body;
 };
 
-HttpResponse httpresponse_create(HttpRequest request);
+HttpResponse httpresponse_create(HttpRequest request, httpclient_err_t *err);
 
 #endif
