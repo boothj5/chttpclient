@@ -16,6 +16,10 @@
 void
 httpnet_connect(HttpContext context, HttpClientError **err)
 {
+    if (context->socket >= 0) {
+        if (context->debug) printf("Already connected.\n");
+        return;
+    }
     struct hostent *he = gethostbyname(context->host);
     if (he == NULL) {
         *err = httperror_create(HOST_LOOKUP_FAILED, "Host lookup failed.");
@@ -113,6 +117,11 @@ httpnet_read_headers(HttpResponse response, HttpClientError **err)
         g_string_append_len(header_stream, header_buf, res);
         if (g_str_has_suffix(header_stream->str, "\r\n\r\n")) headers_read = TRUE;
         memset(header_buf, 0, sizeof(header_buf));
+    }
+
+    if (res == 0 && !headers_read) {
+        *err = httperror_create(SOCK_RECV_FAILED, "Socket read failed.");
+        return;
     }
 
     if (res < 0) {

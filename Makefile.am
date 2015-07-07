@@ -8,7 +8,8 @@ library_sources = \
 	src/httpclient/httpresponse.c src/httpclient/httpresponse.h \
 	src/httpclient/httputil.c src/httpclient/httputil.h
 
-bin_PROGRAMS = simple cmdline download
+bin_PROGRAMS = simple cmdline download tester
 simple_SOURCES = src/simple.c $(library_sources)
 cmdline_SOURCES = src/cmdline.c $(library_sources)
 download_SOURCES = src/download.c $(library_sources)
+tester_SOURCES = src/tester.c $(library_sources)
